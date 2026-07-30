@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FastDownloader — Download Any Video, Instantly</title>
+    <meta name="description" content="Download videos from YouTube, TikTok, Instagram, Twitter, Facebook and more in 4K, 1080p or MP3. Free, fast, no signup required.">
+    <meta name="keywords" content="video downloader, youtube downloader, tiktok downloader, instagram downloader, mp4 downloader, mp3 converter, 4k downloader">
+    <meta name="theme-color" content="#0B0F1A">
+
+    <!-- Preconnect for performance -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- Fonts: subset weights only, display=swap for no FOIT -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+    <!-- Static ambient gradient — zero repaint cost -->
+    <div class="page-bg" aria-hidden="true"></div>
+
+    <!-- ═══════════════════════════════════════════
+         NAVIGATION
+    ═══════════════════════════════════════════ -->
+    <header class="nav" id="nav">
+        <div class="container nav-inner">
+
+            <!-- Logo -->
+            <a href="/" class="logo-mark" aria-label="FastDownloader Home">
+                <div class="logo-icon" aria-hidden="true">
+                    <i class="fas fa-bolt"></i>
+                </div>
+                <span class="logo-name">Fast<span>Downloader</span></span>
+            </a>
+
+            <!-- Nav Links -->
+            <nav class="nav-links" aria-label="Primary Navigation">
+                <a href="#hero"      class="nav-link">Home</a>
+                <a href="#features"  class="nav-link">Features</a>
+                <a href="#platforms" class="nav-link">Platforms</a>
+                <a href="#faq"       class="nav-link">FAQ</a>
+            </nav>
+
+            <!-- Status Badge -->
+            <div class="status-pill" role="status" aria-live="polite">
+                <span class="status-dot" aria-hidden="true"></span>
+                <span>All Systems Operational</span>
+            </div>
+
+        </div>
+    </header>
+
+    <!-- ═══════════════════════════════════════════
+         HERO SECTION
+    ═══════════════════════════════════════════ -->
+    <main>
+    <section id="hero" class="hero" style="position:relative; z-index:10;">
+        <div class="container">
+            <div class="hero-grid">
+
+                <!-- ─── Left: Content & Downloader ─── -->
+                <div class="hero-left">
+
+                    <!-- Eyebrow -->
+                    <div class="hero-eyebrow reveal">
+                        <span class="hero-eyebrow-dot" aria-hidden="true"></span>
+                        v2.5 Engine &nbsp;·&nbsp; 6+ Platforms
+                    </div>
+
+                    <!-- Headline -->
+                    <h1 class="hero-headline reveal reveal-delay-1">
+                        Download media<br>
+                        <span class="text-gradient-blue">at light speed.</span>
+                    </h1>
+
+                    <!-- Subtext -->
+                    <p class="hero-subtext reveal reveal-delay-2">
+                        Paste any video link. Get the highest-quality
+                        file — in MP4, 4K, or 320 kbps MP3 — within
+                        seconds. No sign-up. No ads. No nonsense.
+                    </p>
+
+                    <!-- ─ Command Bar Form ─ -->
+                    <div class="reveal reveal-delay-3">
+                        <form id="url-form" autocomplete="off">
+                            <div class="command-bar" id="command-bar">
+                                <!-- Icon -->
+                                <div class="cmd-icon-wrap" aria-hidden="true">
+                                    <i class="fas fa-link"></i>
+                                </div>
+
+                                <!-- Input + Inline Actions -->
+                                <div class="cmd-input-wrap">
+                                    <input
+                                        type="url"
+                                        id="video-url-input"
+                                        class="cmd-input"
+                                        placeholder="https://youtube.com/watch?v=…"
+                                        aria-label="Video URL"
+                                        spellcheck="false"
+                                    >
+                                </div>
+
+                                <div class="cmd-actions">
+                                    <button type="button" id="clear-btn" class="cmd-btn clear-btn hidden" title="Clear" aria-label="Clear input">
+                                        <i class="fas fa-xmark"></i>
+                                    </button>
+                                    <button type="button" id="paste-btn" class="cmd-btn" title="Paste from clipboard" aria-label="Paste from clipboard">
+                                        <i class="fas fa-clipboard"></i>
+                                        <span>Paste</span>
+                                    </button>
+                                </div>
+
+                                <!-- Submit -->
+                                <button type="submit" id="submit-btn" class="cmd-submit" aria-label="Start download">
+                                    <i class="fas fa-arrow-down"></i>
+                                    <span>Analyze</span>
+                                    <span class="submit-arrow" aria-hidden="true"><i class="fas fa-chevron-right" style="font-size:10px;"></i></span>
+                                </button>
+                            </div>
+                        </form>
+
+                        <!-- Platform Pills -->
+                        <div class="platform-ticker" role="list" aria-label="Supported platforms">
+                            <span class="platform-ticker-label">Works with</span>
+                            <span class="platform-pill" role="listitem">
+                                <i class="fab fa-youtube" style="color:#EF4444;" aria-hidden="true"></i> YouTube
+                            </span>
+                            <span class="platform-pill" role="listitem">
+                                <i class="fab fa-tiktok" style="color:#22D3EE;" aria-hidden="true"></i> TikTok
+                            </span>
+                            <span class="platform-pill" role="listitem">
+                                <i class="fab fa-instagram" style="color:#EC4899;" aria-hidden="true"></i> Instagram
+                            </span>
+                            <span class="platform-pill" role="listitem">
+                                <i class="fab fa-x-twitter" style="color:#E2E8F0;" aria-hidden="true"></i> X / Twitter
+                            </span>
+                            <span class="platform-pill" role="listitem">
+                                <i class="fab fa-facebook" style="color:#3B82F6;" aria-hidden="true"></i> Facebook
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ─── Right: Live Product Preview ─── -->
+                <div class="hero-preview reveal reveal-delay-2">
+
+                    <!-- Floating Badges -->
+                    <div class="float-badge float-badge-tl" aria-hidden="true">
+                        <i class="fas fa-circle-check" style="font-size:13px;"></i>
+                        1.2 GB/s Transfer
+                    </div>
+                    <div class="float-badge float-badge-tr" aria-hidden="true">
+                        <i class="fas fa-film" style="font-size:11px;"></i>
+                        4K UHD Ready
+                    </div>
+                    <div class="float-badge float-badge-br" aria-hidden="true">
+                        <i class="fas fa-music" style="font-size:11px;"></i>
+                        320 kbps Audio
+                    </div>
+
+                    <!-- Main Preview Card -->
+                    <div class="preview-card">
+                        <div class="preview-card-inner">
+
+                            <!-- Window Chrome -->
+                            <div class="preview-header">
+                                <div class="preview-dots" aria-hidden="true">
+                                    <div class="preview-dot dot-red"></div>
+                                    <div class="preview-dot dot-amber"></div>
+                                    <div class="preview-dot dot-green"></div>
+                                </div>
+                                <div class="preview-title-bar">
+                                    fastdownloader.app · extract
+                                </div>
+                            </div>
+
+                            <!-- Thumbnail Mockup -->
+                            <div class="preview-thumb" aria-hidden="true">
+                                <div class="preview-thumb-gradient"></div>
+                                <div class="preview-thumb-content">
+                                    <div class="preview-play-btn">
+                                        <i class="fas fa-play" style="margin-left:2px;"></i>
+                                    </div>
+                                    <div class="preview-thumb-label">video_preview.mp4</div>
+                                </div>
+                            </div>
+
+                            <!-- Video Meta Mock -->
+                            <div class="preview-meta">
+                                <div class="preview-video-title">The Most Beautiful Timelapse of Earth from Space</div>
+                                <div class="preview-author-row">
+                                    <span>NASA Official</span>
+                                    <span>42:18 min</span>
+                                </div>
+                            </div>
+
+                            <!-- Quality Tabs -->
+                            <div class="preview-quality-tabs" role="tablist" aria-label="Quality options">
+                                <div class="q-tab active" role="tab" tabindex="0">2160p</div>
+                                <div class="q-tab" role="tab" tabindex="0">1080p</div>
+                                <div class="q-tab" role="tab" tabindex="0">720p</div>
+                                <div class="q-tab" role="tab" tabindex="0">480p</div>
+                                <div class="q-tab" role="tab" tabindex="0">MP3</div>
+                            </div>
+
+                            <!-- Animated Progress -->
+                            <div class="preview-progress-wrap" aria-hidden="true">
+                                <div class="progress-row">
+                                    <span class="progress-filename">earth_timelapse_4k.mp4</span>
+                                    <span class="progress-speed">↓ 1.2 GB/s</span>
+                                </div>
+                                <div class="progress-track">
+                                    <div class="progress-fill"></div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+
+            </div><!-- /hero-grid -->
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════
+         LOADING STATE  (Hidden by default)
+    ═══════════════════════════════════════════ -->
+    <section id="loading-section" class="section-loading hidden" aria-live="polite" aria-label="Processing">
+        <div class="container">
+            <div class="loading-card">
+
+                <div class="spinner-wrap" aria-hidden="true">
+                    <div class="spinner-outer"></div>
+                    <div class="spinner-inner"></div>
+                    <div class="spinner-center">
+                        <i class="fas fa-cloud-arrow-down"></i>
+                    </div>
+                </div>
+
+                <div class="loading-status" id="status-step-text">Connecting…</div>
+                <div class="loading-sub">Processing your media link, hold tight.</div>
+
+                <div class="loading-bar-track" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                    <div class="loading-bar-fill" id="progress-bar"></div>
+                </div>
+                <div class="loading-percent-row">
+                    <span>Extracting media</span>
+                    <span class="loading-percent" id="progress-percent">0%</span>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════
+         RESULT SECTION  (Hidden by default)
+    ═══════════════════════════════════════════ -->
+    <section id="result-section" class="section-result hidden" aria-label="Download results">
+        <div class="container">
+            <div class="result-card">
+                <div class="result-inner">
+
+                    <!-- Thumbnail Column -->
+                    <div class="result-thumb-col">
+                        <div class="result-thumb-wrap">
+                            <img id="video-thumbnail" src="" alt="Video thumbnail" loading="lazy" decoding="async">
+                            <div class="result-thumb-overlay" aria-hidden="true"></div>
+                            <div class="result-duration-badge" aria-label="Duration">
+                                <i class="far fa-clock" aria-hidden="true"></i>
+                                <span id="video-duration">00:00</span>
+                            </div>
+                            <div class="result-platform-badge" aria-label="Platform">
+                                <span id="video-platform-tag">Platform</span>
+                            </div>
+                        </div>
+
+                        <!-- Quick Actions -->
+                        <div class="result-main-actions">
+                            <button id="main-download-btn" class="btn-download-mp4">
+                                <i class="fas fa-download" aria-hidden="true"></i> MP4 Video
+                            </button>
+                            <button id="main-audio-btn" class="btn-download-mp3">
+                                <i class="fas fa-music" aria-hidden="true"></i> MP3 Audio
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Info Column -->
+                    <div class="result-info-col">
+                        <h2 id="video-title" class="result-video-title">Video Title</h2>
+                        <p id="video-author" class="result-video-author">
+                            <i class="fas fa-circle-user" aria-hidden="true"></i>
+                            <span>Uploaded by: Author</span>
+                        </p>
+
+                        <div class="result-qualities-label">Available Formats</div>
+
+                        <div id="qualities-container" class="qualities-list" role="list">
+                            <!-- Injected by JS -->
+                        </div>
+
+                        <div class="result-footer">
+                            <button id="download-another-btn" class="btn-dl-another">
+                                <i class="fas fa-rotate-left" aria-hidden="true"></i>
+                                Download another video
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════
+         STATS STRIP
+    ═══════════════════════════════════════════ -->
+    <section class="stats-strip" aria-label="Platform statistics">
+        <div class="container">
+            <div class="stats-grid" role="list">
+
+                <div class="stat-item reveal" role="listitem">
+                    <div class="stat-value text-gradient-blue">50M+</div>
+                    <div class="stat-label">Videos Downloaded</div>
+                </div>
+
+                <div class="stat-item reveal reveal-delay-1" role="listitem">
+                    <div class="stat-value text-gradient-blue">6</div>
+                    <div class="stat-label">Supported Platforms</div>
+                </div>
+
+                <div class="stat-item reveal reveal-delay-2" role="listitem">
+                    <div class="stat-value text-gradient-blue">4K</div>
+                    <div class="stat-label">Max Resolution</div>
+                </div>
+
+                <div class="stat-item reveal reveal-delay-3" role="listitem">
+                    <div class="stat-value text-gradient-aurora">Free</div>
+                    <div class="stat-label">Always, No Limits</div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════
+         FEATURES — BENTO GRID
+    ═══════════════════════════════════════════ -->
+    <section id="features" class="features-section" aria-labelledby="features-heading">
+        <div class="container">
+            <div class="section-header reveal">
+                <div class="section-eyebrow">
+                    <i class="fas fa-sparkles" aria-hidden="true"></i>
+                    Why FastDownloader
+                </div>
+                <h2 class="section-title" id="features-heading">
+                    Built different.<br>Works better.
+                </h2>
+                <p class="section-desc">
+                    No install, no account, no bullshit. Just paste a link
+                    and get your file faster than any browser extension.
+                </p>
+            </div>
+
+            <!-- Bento Grid -->
+            <div class="bento-grid">
+
+                <!-- Card 1 — Speed (Wide) -->
+                <div class="bento-card bento-card-wide reveal" style="background: linear-gradient(135deg, rgba(17,23,38,1) 0%, rgba(22,34,60,1) 100%);">
+                    <div class="bento-label" style="color: var(--accent-blue);">
+                        <i class="fas fa-bolt" aria-hidden="true"></i> &nbsp;Lightning Engine
+                    </div>
+                    <div class="bento-heading">Sub-second extraction.</div>
+                    <div class="bento-sub">
+                        Our serverless edge extraction pipeline resolves
+                        video formats in under 500ms — faster than any
+                        browser extension or desktop app.
+                    </div>
+                    <!-- Static bars — no JS animation, heights define visual rhythm -->
+                    <div class="speed-meter" aria-hidden="true">
+                        <div class="speed-bar" style="height:40%"></div>
+                        <div class="speed-bar" style="height:65%"></div>
+                        <div class="speed-bar" style="height:85%"></div>
+                        <div class="speed-bar" style="height:55%"></div>
+                        <div class="speed-bar peak" style="height:95%"></div>
+                        <div class="speed-bar" style="height:75%"></div>
+                        <div class="speed-bar" style="height:90%"></div>
+                        <div class="speed-bar" style="height:60%"></div>
+                        <div class="speed-bar peak" style="height:100%"></div>
+                        <div class="speed-bar" style="height:70%"></div>
+                    </div>
+                    <div class="speed-stats">
+                        <span>avg <span style="color:var(--cyan);">420ms</span></span>
+                        <span>peak <span style="color:var(--emerald);">120ms</span></span>
+                        <span>p99 <span style="color:var(--purple);">740ms</span></span>
+                    </div>
+                </div>
+
+                <!-- Card 2 — Formats (Slim) -->
+                <div class="bento-card bento-card-slim reveal reveal-delay-1">
+                    <div class="bento-label" style="color: var(--accent-purple);">
+                        <i class="fas fa-layer-group" aria-hidden="true"></i> &nbsp;Formats
+                    </div>
+                    <div class="bento-heading">Every format.<br>Best quality.</div>
+                    <div class="bento-sub">
+                        MP4 up to 4K, MP3 at 320 kbps. Original quality, zero re-encoding loss.
+                    </div>
+                    <div class="format-tags" aria-label="Supported formats">
+                        <span class="format-tag" style="background:rgba(59,130,246,0.10);border:1px solid rgba(59,130,246,0.20);color:var(--accent-blue);">4K UHD</span>
+                        <span class="format-tag" style="background:rgba(34,211,238,0.10);border:1px solid rgba(34,211,238,0.20);color:var(--accent-cyan);">1080p</span>
+                        <span class="format-tag" style="background:rgba(167,139,250,0.10);border:1px solid rgba(167,139,250,0.20);color:var(--accent-purple);">720p</span>
+                        <span class="format-tag" style="background:rgba(52,211,153,0.10);border:1px solid rgba(52,211,153,0.20);color:var(--accent-emerald);">480p</span>
+                        <span class="format-tag" style="background:rgba(251,191,36,0.10);border:1px solid rgba(251,191,36,0.20);color:var(--accent-amber);">MP3</span>
+                        <span class="format-tag" style="background:rgba(239,68,68,0.10);border:1px solid rgba(239,68,68,0.20);color:#F87171;">Audio Only</span>
+                    </div>
+                </div>
+
+                <!-- Card 3 — Security (Half) -->
+                <div class="bento-card bento-card-half reveal">
+                    <div class="bento-label" style="color: var(--accent-emerald);">
+                        <i class="fas fa-shield-halved" aria-hidden="true"></i> &nbsp;Privacy First
+                    </div>
+                    <div class="bento-heading">Zero logs.<br>Zero tracking.</div>
+                    <div class="security-list" aria-label="Security features">
+                        <div class="security-item">
+                            <div class="security-check" aria-hidden="true"><i class="fas fa-check"></i></div>
+                            <span>No account or sign-in required</span>
+                        </div>
+                        <div class="security-item">
+                            <div class="security-check" aria-hidden="true"><i class="fas fa-check"></i></div>
+                            <span>Download history never stored</span>
+                        </div>
+                        <div class="security-item">
+                            <div class="security-check" aria-hidden="true"><i class="fas fa-check"></i></div>
+                            <span>No personal data collected</span>
+                        </div>
+                        <div class="security-item">
+                            <div class="security-check" aria-hidden="true"><i class="fas fa-check"></i></div>
+                            <span>Completely ad-free experience</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 4 — Multi-Device (Half) -->
+                <div class="bento-card bento-card-half reveal reveal-delay-1" style="background: linear-gradient(135deg, rgba(17,23,38,1) 0%, rgba(25,18,46,1) 100%);">
+                    <div class="bento-label" style="color: var(--accent-purple);">
+                        <i class="fas fa-mobile-screen" aria-hidden="true"></i> &nbsp;Cross-Platform
+                    </div>
+                    <div class="bento-heading">Any device.<br>Any browser.</div>
+                    <div class="bento-sub">
+                        Works on Windows, macOS, Linux, Android,
+                        and iOS. No install. No extension needed.
+                    </div>
+                    <div style="margin-top:20px; display:flex; gap:12px; flex-wrap:wrap;" aria-hidden="true">
+                        <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);">
+                            <i class="fab fa-windows" style="font-size:16px;color:#60A5FA;"></i> Windows
+                        </div>
+                        <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);">
+                            <i class="fab fa-apple" style="font-size:16px;color:var(--text-secondary);"></i> macOS / iOS
+                        </div>
+                        <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);">
+                            <i class="fab fa-android" style="font-size:16px;color:#34D399;"></i> Android
+                        </div>
+                        <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);">
+                            <i class="fab fa-linux" style="font-size:16px;color:var(--accent-amber);"></i> Linux
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════
+         PLATFORMS
+    ═══════════════════════════════════════════ -->
+    <section id="platforms" class="platforms-section" aria-labelledby="platforms-heading">
+        <div class="container">
+            <div class="platforms-header">
+                <div>
+                    <div class="section-eyebrow reveal">
+                        <i class="fas fa-grid-2" aria-hidden="true"></i>
+                        Supported Platforms
+                    </div>
+                    <h2 class="section-title reveal reveal-delay-1" id="platforms-heading" style="margin-bottom:0;">
+                        One tool,<br>every platform.
+                    </h2>
+                </div>
+                <p class="section-desc reveal reveal-delay-2" style="margin-bottom:0; flex-shrink:0; max-width:260px;">
+                    All major video platforms supported, with more being added continuously.
+                </p>
+            </div>
+
+            <div class="platforms-grid" role="list" aria-label="Supported video platforms">
+
+                <div class="platform-card yt reveal" role="listitem">
+                    <i class="fab fa-youtube platform-icon" style="color:#EF4444;" aria-hidden="true"></i>
+                    <div class="platform-name">YouTube</div>
+                    <div class="platform-status">● Live</div>
+                </div>
+
+                <div class="platform-card tt reveal reveal-delay-1" role="listitem">
+                    <i class="fab fa-tiktok platform-icon" style="color:#22D3EE;" aria-hidden="true"></i>
+                    <div class="platform-name">TikTok</div>
+                    <div class="platform-status">● Live</div>
+                </div>
+
+                <div class="platform-card ig reveal reveal-delay-2" role="listitem">
+                    <i class="fab fa-instagram platform-icon" style="color:#EC4899;" aria-hidden="true"></i>
+                    <div class="platform-name">Instagram</div>
+                    <div class="platform-status">● Live</div>
+                </div>
+
+                <div class="platform-card tw reveal reveal-delay-3" role="listitem">
+                    <i class="fab fa-x-twitter platform-icon" style="color:#E2E8F0;" aria-hidden="true"></i>
+                    <div class="platform-name">X / Twitter</div>
+                    <div class="platform-status">● Live</div>
+                </div>
+
+                <div class="platform-card fb reveal reveal-delay-4" role="listitem">
+                    <i class="fab fa-facebook platform-icon" style="color:#3B82F6;" aria-hidden="true"></i>
+                    <div class="platform-name">Facebook</div>
+                    <div class="platform-status">● Live</div>
+                </div>
+
+                <div class="platform-card vm reveal reveal-delay-4" role="listitem">
+                    <i class="fab fa-vimeo platform-icon" style="color:#60A5FA;" aria-hidden="true"></i>
+                    <div class="platform-name">Vimeo</div>
+                    <div class="platform-status">● Live</div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════
+         FAQ SECTION
+    ═══════════════════════════════════════════ -->
+    <section id="faq" class="faq-section" aria-labelledby="faq-heading">
+        <div class="container">
+            <div class="faq-layout">
+
+                <!-- Sidebar -->
+                <div class="faq-sidebar reveal">
+                    <div class="section-eyebrow" style="margin-bottom:14px;">
+                        <i class="fas fa-circle-question" aria-hidden="true"></i>
+                        FAQ
+                    </div>
+                    <div class="faq-sidebar-title" id="faq-heading">
+                        Everything<br>you need<br>to know.
+                    </div>
+                    <p class="faq-sidebar-desc">
+                        Can't find your answer? Reach out via
+                        the contact link in the footer.
+                    </p>
+                    <div class="faq-trust-items" aria-label="Trust signals">
+                        <div class="faq-trust-item">
+                            <i class="fas fa-check" aria-hidden="true"></i>
+                            <span>100% free, forever</span>
+                        </div>
+                        <div class="faq-trust-item">
+                            <i class="fas fa-check" aria-hidden="true"></i>
+                            <span>No email required</span>
+                        </div>
+                        <div class="faq-trust-item">
+                            <i class="fas fa-check" aria-hidden="true"></i>
+                            <span>Unlimited downloads</span>
+                        </div>
+                        <div class="faq-trust-item">
+                            <i class="fas fa-check" aria-hidden="true"></i>
+                            <span>Works on all devices</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Accordion -->
+                <div class="faq-accordion reveal reveal-delay-1" role="list">
+
+                    <details class="faq-item" role="listitem">
+                        <summary class="faq-question" aria-label="Is FastDownloader free?">
+                            Is FastDownloader completely free to use?
+                            <i class="fas fa-chevron-down faq-chevron" aria-hidden="true"></i>
+                        </summary>
+                        <div class="faq-answer">
+                            Yes, 100% free with no limits. You never need to register an account
+                            or pay any subscription — now or in the future.
+                        </div>
+                    </details>
+
+                    <details class="faq-item" role="listitem">
+                        <summary class="faq-question" aria-label="Can I extract MP3 audio?">
+                            Can I extract audio only as an MP3?
+                            <i class="fas fa-chevron-down faq-chevron" aria-hidden="true"></i>
+                        </summary>
+                        <div class="faq-answer">
+                            Absolutely. Once you paste a supported URL, the result card automatically
+                            provides a high-quality 320 kbps MP3 alongside all available MP4 resolutions.
+                        </div>
+                    </details>
+
+                    <details class="faq-item" role="listitem">
+                        <summary class="faq-question" aria-label="Where are files saved?">
+                            Where do the downloaded files get saved?
+                            <i class="fas fa-chevron-down faq-chevron" aria-hidden="true"></i>
+                        </summary>
+                        <div class="faq-answer">
+                            Files are sent directly through your browser's standard download mechanism —
+                            they land in your browser's default download folder (usually&nbsp;<code style="font-family:'JetBrains Mono',monospace;font-size:12px;background:rgba(255,255,255,0.06);padding:2px 6px;border-radius:4px;">~/Downloads</code>).
+                        </div>
+                    </details>
+
+                    <details class="faq-item" role="listitem">
+                        <summary class="faq-question" aria-label="Is it safe to use?">
+                            Is it safe? Does it store my data?
+                            <i class="fas fa-chevron-down faq-chevron" aria-hidden="true"></i>
+                        </summary>
+                        <div class="faq-answer">
+                            We store zero personal data, URLs, or download history. No cookies, no
+                            analytics trackers, no third-party data sharing. Your privacy is fully respected.
+                        </div>
+                    </details>
+
+                    <details class="faq-item" role="listitem">
+                        <summary class="faq-question" aria-label="Why isn't my video working?">
+                            My video link isn't working. What should I do?
+                            <i class="fas fa-chevron-down faq-chevron" aria-hidden="true"></i>
+                        </summary>
+                        <div class="faq-answer">
+                            Ensure the link is publicly accessible (not private or age-restricted without login).
+                            Copy the full URL from the browser address bar. If the issue persists, the platform
+                            may have recently changed their API — try again in a few minutes.
+                        </div>
+                    </details>
+
+                </div>
+            </div>
+        </div>
+    </section>
+
+    </main>
+
+    <!-- ═══════════════════════════════════════════
+         FOOTER
+    ═══════════════════════════════════════════ -->
+    <footer class="footer" role="contentinfo">
+        <div class="container footer-inner">
+
+            <div class="footer-brand">
+                <div class="logo-icon" style="width:30px;height:30px;font-size:12px;" aria-hidden="true">
+                    <i class="fas fa-bolt"></i>
+                </div>
+                <span class="logo-name" style="font-size:14px;">Fast<span>Downloader</span></span>
+            </div>
+
+            <nav class="footer-links" aria-label="Footer navigation">
+                <a href="#"
+                   class="footer-link"
+                   onclick="alert('Privacy Policy: We do not store or track any user video download logs or personal data.'); return false;">
+                    Privacy
+                </a>
+                <a href="#"
+                   class="footer-link"
+                   onclick="alert('Terms of Service: This app is intended for personal media downloading. Please respect creator copyrights.'); return false;">
+                    Terms
+                </a>
+                <a href="#"
+                   class="footer-link"
+                   onclick="alert('Contact: support@fastdownloader.local'); return false;">
+                    Contact
+                </a>
+            </nav>
+
+            <div class="footer-copy">
+                &copy; 2026 FastDownloader. Built with Python FastAPI.
+            </div>
+
+        </div>
+    </footer>
+
+    <!-- Main JS -->
+    <script src="/static/js/main.js"></script>
+</body>
+</html>
