@@ -7,9 +7,6 @@
 
 document.addEventListener('DOMContentLoaded', () => {
 
-    // ─── API Base URL (Set Railway domain for Vercel -> Railway backend) ─
-    const API_BASE_URL = window.RAILWAY_BACKEND_URL || '';
-
     // ─── DOM References ──────────────────────────────────────
     const urlForm          = document.getElementById('url-form');
     const urlInput         = document.getElementById('video-url-input');
@@ -34,6 +31,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const downloadAnotherBtn = document.getElementById('download-another-btn');
 
     const nav              = document.getElementById('nav');
+
+    // ─── API Base URL Configuration ────────────────────────────
+    // Allows Railway backend domain override when frontend is on Vercel
+    const API_BASE_URL = (typeof window !== 'undefined' && window.API_BASE_URL) ? window.API_BASE_URL : '';
 
 
     // ─── Nav Scroll State — rAF-throttled to avoid forced layout on every scroll ─

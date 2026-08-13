@@ -14,21 +14,16 @@ app = FastAPI(
     description=settings.APP_DESCRIPTION
 )
 
-# CORS configuration for Railway backend <-> Vercel frontend
+# CORS configuration
 allowed_origins = [
     "https://save-duls.vercel.app",
     "http://localhost:8000",
     "http://127.0.0.1:8000",
     "http://localhost:3000",
-    "http://127.0.0.1:3000",
 ]
-
 env_origins = os.getenv("ALLOWED_ORIGINS")
 if env_origins:
-    for o in env_origins.split(","):
-        o_strip = o.strip()
-        if o_strip and o_strip not in allowed_origins:
-            allowed_origins.append(o_strip)
+    allowed_origins.extend([o.strip() for o in env_origins.split(",") if o.strip()])
 
 app.add_middleware(
     CORSMiddleware,
@@ -70,5 +65,7 @@ async def custom_500_handler(request: Request, exc):
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.environ.get("PORT", 8000))
-    uvicorn.run("app:app", host="0.0.0.0", port=port, reload=True)
+    port = int(os.getenv("PORT", 8000))
+    is_dev = os.getenv("ENV", "development").lower() == "development"
+    uvicorn.run("app:app", host="0.0.0.0", port=port, reload=is_dev)
+
