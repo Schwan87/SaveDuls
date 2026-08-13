@@ -238,12 +238,12 @@ class VideoExtractorService:
     def _extract_youtube(url: str, platform: str) -> Dict[str, Any]:
         """
         Dedicated YouTube extractor with multi-client fallback strategies.
-        Uses yt-dlp with optimized player clients.
+        Uses yt-dlp with optimized player clients to extract all available resolutions (144p to 4K).
         """
         import yt_dlp
         errors = []
 
-        # Strategy 1: Multi-player client selection (iOS, MWeb, Android, Web)
+        # Strategy 1: Android VR + Web player clients (returns full resolution spectrum 144p-2160p)
         try:
             ydl_opts = {
                 'quiet': True,
@@ -254,11 +254,11 @@ class VideoExtractorService:
                 'nocheckcertificate': True,
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['ios', 'mweb', 'android', 'web']
+                        'player_client': ['android_vr', 'web', 'mweb', 'android']
                     }
                 }
             }
-            logger.info("YouTube yt-dlp: trying strategy 1 (ios/mweb clients)")
+            logger.info("YouTube yt-dlp: trying strategy 1 (android_vr/web clients)")
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
                 if info:
@@ -269,7 +269,7 @@ class VideoExtractorService:
             errors.append(f"Strategy 1: {err}")
             logger.warning(f"YouTube strategy 1 failed: {err}")
 
-        # Strategy 2: Mobile client fallback
+        # Strategy 2: Web + Android fallback
         try:
             ydl_opts = {
                 'quiet': True,
@@ -280,11 +280,11 @@ class VideoExtractorService:
                 'nocheckcertificate': True,
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['mweb', 'android']
+                        'player_client': ['web', 'android']
                     }
                 }
             }
-            logger.info("YouTube yt-dlp: trying strategy 2 (mobile clients)")
+            logger.info("YouTube yt-dlp: trying strategy 2 (web/android clients)")
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
                 if info:
@@ -325,7 +325,7 @@ class VideoExtractorService:
     def _extract_instagram(url: str, platform: str) -> Dict[str, Any]:
         """
         Dedicated Instagram extractor with multi-strategy fallback:
-        1. yt-dlp (primary — works best for public reels/posts)
+        1. yt-dlp (primary — parses all available resolution streams)
         2. InDown scraper (fallback when yt-dlp hits rate limits)
         3. SnapInsta API (final fallback)
         """
@@ -342,53 +342,6 @@ class VideoExtractorService:
             logger.info("Instagram: trying Strategy 1 (yt-dlp)")
             import yt_dlp
 
-            def _build_result_from_ytdlp(info: dict) -> dict:
-                video_url = info.get("url") or ""
-                thumbnail = info.get("thumbnail") or "https://images.unsplash.com/photo-1611262588024-d12430b98920?q=80&w=1000&auto=format&fit=crop"
-                title = info.get("title") or info.get("description") or "Instagram Video"
-                author = info.get("uploader") or info.get("channel") or "Instagram Creator"
-                duration = info.get("duration")
-                
-                formats = info.get("formats") or []
-                best_video = next((f for f in reversed(formats) if f.get("vcodec") != "none" and f.get("acodec") != "none"), None)
-                if best_video:
-                    video_url = best_video.get("url") or video_url
-
-                qualities = [
-                    {
-                        "quality": "Best Quality",
-                        "format": "MP4",
-                        "resolution": f"{info.get('width', 0)}x{info.get('height', 0)}" if info.get("width") else "1080x1920",
-                        "size": format_filesize(info.get("filesize") or info.get("filesize_approx") or 0),
-                        "url": video_url,
-                        "audio_url": None,
-                        "has_audio": True,
-                        "is_audio": False
-                    },
-                    {
-                        "quality": "MP3 High Quality",
-                        "format": "MP3",
-                        "resolution": "320 kbps",
-                        "size": "Direct Audio",
-                        "url": video_url,
-                        "audio_url": None,
-                        "has_audio": True,
-                        "is_audio": True
-                    }
-                ]
-
-                return {
-                    "success": True,
-                    "title": str(title)[:100],
-                    "thumbnail": thumbnail,
-                    "duration": format_duration(int(duration)) if duration else "N/A",
-                    "platform": platform,
-                    "author": author,
-                    "qualities": qualities,
-                    "download_url": video_url,
-                    "audio_url": video_url
-                }
-
             ydl_opts = {
                 'quiet': True,
                 'no_warnings': True,
@@ -402,7 +355,7 @@ class VideoExtractorService:
                 info = ydl.extract_info(url, download=False)
                 if info and (info.get("url") or info.get("formats")):
                     logger.info("Instagram Strategy 1 (yt-dlp) succeeded")
-                    return _build_result_from_ytdlp(info)
+                    return VideoExtractorService._parse_ytdlp_info(info, platform, url)
         except Exception as e:
             err = str(e)
             errors.append(f"yt-dlp: {err}")
@@ -900,6 +853,18 @@ class VideoExtractorService:
                 break
         added_resolutions = set()
 
+        def _format_quality_tag(h: int) -> str:
+            if h >= 2160:
+                return f"{h}p 4K Ultra HD"
+            elif h >= 1440:
+                return f"{h}p 2K QHD"
+            elif h >= 1080:
+                return f"{h}p Full HD"
+            elif h >= 720:
+                return f"{h}p HD"
+            else:
+                return f"{h}p SD"
+
         # Pass 1: Progressive formats (video + audio in one stream)
         for fmt in reversed(formats):
             height = fmt.get('height')
@@ -911,7 +876,7 @@ class VideoExtractorService:
                 added_resolutions.add(height)
                 filesize = fmt.get('filesize') or fmt.get('filesize_approx') or (height * 100000)
                 qualities.append({
-                    "quality": f"{height}p " + ("Full HD" if height >= 1080 else ("HD" if height >= 720 else "SD")),
+                    "quality": _format_quality_tag(height),
                     "format": "MP4",
                     "resolution": f"{fmt.get('width', '1920')}x{height}",
                     "size": format_filesize(filesize),
@@ -931,7 +896,7 @@ class VideoExtractorService:
                 added_resolutions.add(height)
                 filesize = fmt.get('filesize') or fmt.get('filesize_approx') or (height * 100000)
                 qualities.append({
-                    "quality": f"{height}p " + ("Full HD" if height >= 1080 else ("HD" if height >= 720 else "SD")),
+                    "quality": _format_quality_tag(height),
                     "format": "MP4",
                     "resolution": f"{fmt.get('width', '1920')}x{height}",
                     "size": format_filesize(filesize),
