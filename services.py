@@ -844,7 +844,20 @@ class VideoExtractorService:
         
         qualities: List[Dict[str, Any]] = []
         formats = info.get('formats', [])
-        
+
+        if platform.lower() == 'youtube':
+            logger.info(f"[YOUTUBE FORMATS AUDIT] URL: {original_url} | Total raw formats: {len(formats)}")
+            for fmt in formats:
+                fid = fmt.get('format_id')
+                h = fmt.get('height')
+                w = fmt.get('width')
+                ext = fmt.get('ext')
+                vcodec = fmt.get('vcodec')
+                acodec = fmt.get('acodec')
+                fs = fmt.get('filesize') or fmt.get('filesize_approx')
+                proto = fmt.get('protocol')
+                logger.info(f"[YOUTUBE FORMAT] id={fid} height={h} width={w} ext={ext} vcodec={vcodec} acodec={acodec} filesize={fs} protocol={proto}")
+
         # Find best standalone audio stream URL
         best_audio_url = None
         for fmt in reversed(formats):
@@ -875,9 +888,14 @@ class VideoExtractorService:
             if height and vcodec != 'none' and acodec != 'none' and url and height not in added_resolutions:
                 added_resolutions.add(height)
                 filesize = fmt.get('filesize') or fmt.get('filesize_approx') or (height * 100000)
+                quality_label = _format_quality_tag(height)
                 qualities.append({
-                    "quality": _format_quality_tag(height),
+                    "label": quality_label,
+                    "quality": quality_label,
+                    "height": height,
+                    "format_id": str(fmt.get('format_id', '')),
                     "format": "MP4",
+                    "ext": "mp4",
                     "resolution": f"{fmt.get('width', '1920')}x{height}",
                     "size": format_filesize(filesize),
                     "url": url,
@@ -895,9 +913,14 @@ class VideoExtractorService:
             if height and vcodec != 'none' and url and height not in added_resolutions:
                 added_resolutions.add(height)
                 filesize = fmt.get('filesize') or fmt.get('filesize_approx') or (height * 100000)
+                quality_label = _format_quality_tag(height)
                 qualities.append({
-                    "quality": _format_quality_tag(height),
+                    "label": quality_label,
+                    "quality": quality_label,
+                    "height": height,
+                    "format_id": str(fmt.get('format_id', '')),
                     "format": "MP4",
+                    "ext": "mp4",
                     "resolution": f"{fmt.get('width', '1920')}x{height}",
                     "size": format_filesize(filesize),
                     "url": url,
@@ -909,8 +932,12 @@ class VideoExtractorService:
         # If no specific formats extracted, add default URL format
         if not qualities and info.get('url'):
             qualities.append({
+                "label": "720p HD",
                 "quality": "720p HD",
+                "height": 720,
+                "format_id": str(info.get('format_id', '')),
                 "format": "MP4",
+                "ext": "mp4",
                 "resolution": "1280x720",
                 "size": "24.2 MB",
                 "url": info.get('url') or original_url,
@@ -923,8 +950,12 @@ class VideoExtractorService:
             best_audio_url = qualities[0]["url"] if qualities else (info.get('url') or original_url)
 
         audio_quality = {
+            "label": "MP3 High Quality",
             "quality": "MP3 High Quality",
+            "height": 0,
+            "format_id": "audio",
             "format": "MP3",
+            "ext": "mp3",
             "resolution": "320 kbps",
             "size": "8.5 MB" if duration_sec == 0 else format_filesize(duration_sec * 32000),
             "url": best_audio_url,
@@ -933,8 +964,8 @@ class VideoExtractorService:
             "is_audio": True
         }
 
-        # Sort qualities descending by height
-        qualities.sort(key=lambda x: int(x['quality'].split('p')[0]) if 'p' in x['quality'] else 0, reverse=True)
+        # Sort qualities descending by height (use integer height field for robust sorting)
+        qualities.sort(key=lambda x: x.get('height', 0), reverse=True)
         qualities.append(audio_quality)
 
         return {
