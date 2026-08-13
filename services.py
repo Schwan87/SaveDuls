@@ -904,11 +904,27 @@ class VideoExtractorService:
             else:
                 return f"{h}p SD"
 
+        # Prioritize H.264 (avc1) codec formats over AV1/VP9 for universal Windows/Mac/Mobile compatibility
+        def _codec_score(f: dict) -> int:
+            vc = str(f.get('vcodec', '')).lower()
+            score = 0
+            if 'avc1' in vc or 'h264' in vc:
+                score += 100
+            elif 'vp9' in vc or 'vp09' in vc:
+                score += 50
+            elif 'av01' in vc or 'av1' in vc:
+                score += 10
+            if f.get('ext') == 'mp4':
+                score += 5
+            return score
+
+        sorted_formats = sorted(formats, key=_codec_score, reverse=True)
+
         # Pass 1: Progressive formats (video + audio in one stream)
-        for fmt in reversed(formats):
+        for fmt in sorted_formats:
             height = fmt.get('height')
-            vcodec = fmt.get('vcodec', 'none')
-            acodec = fmt.get('acodec', 'none')
+            vcodec = str(fmt.get('vcodec', 'none')).lower()
+            acodec = str(fmt.get('acodec', 'none')).lower()
             url = fmt.get('url')
             
             if height and vcodec != 'none' and acodec != 'none' and url and height not in added_resolutions:
@@ -931,9 +947,9 @@ class VideoExtractorService:
                 })
 
         # Pass 2: Adaptive video formats (fill in remaining resolutions with standalone audio link)
-        for fmt in reversed(formats):
+        for fmt in sorted_formats:
             height = fmt.get('height')
-            vcodec = fmt.get('vcodec', 'none')
+            vcodec = str(fmt.get('vcodec', 'none')).lower()
             url = fmt.get('url')
             
             if height and vcodec != 'none' and url and height not in added_resolutions:
