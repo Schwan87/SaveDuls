@@ -56,6 +56,43 @@ _TIKTOK_STRATEGIES = [
         'format': 'best[ext=mp4]/best',
     },
 ]
+def _unpack_js(packed_code: str) -> str:
+    """
+    Pure Python Dean Edwards p.a.c.k.e.r unpacker.
+    Used for extracting obfuscated HTML/JS responses from scrapers like Snapsave.
+    Replaces node.js subprocess dependency.
+    """
+    try:
+        pattern = r"eval\(function\(p,a,c,k,e,d\)\{.*?\}\('([^']*)',(\d+),(\d+),'([^']*)'\.split\('\|'\)"
+        match = re.search(pattern, packed_code, re.DOTALL)
+        if not match:
+            pattern = r'eval\(function\(p,a,c,k,e,d\)\{.*?\}\("([^"]*)",(\d+),(\d+),"([^"]*)"\.split\("\|"\)'
+            match = re.search(pattern, packed_code, re.DOTALL)
+        if not match:
+            return ""
+
+        p, a, c, k = match.groups()
+        a, c = int(a), int(c)
+        k_list = k.split('|')
+
+        def baseN(num, b):
+            chars = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+            if num == 0:
+                return '0'
+            res = ""
+            while num > 0:
+                res = chars[num % b] + res
+                num //= b
+            return res
+
+        for i in range(c - 1, -1, -1):
+            if i < len(k_list) and k_list[i]:
+                key = baseN(i, a)
+                p = re.sub(r'\b' + key + r'\b', k_list[i], p)
+        return p
+    except Exception as e:
+        logger.warning(f"JS unpacker exception: {e}")
+        return ""
 
 
 class VideoExtractorService:
@@ -201,12 +238,12 @@ class VideoExtractorService:
     def _extract_youtube(url: str, platform: str) -> Dict[str, Any]:
         """
         Dedicated YouTube extractor with multi-client fallback strategies.
-        Uses yt-dlp with remote JS challenge solver (Node-backed) and multiple player clients.
+        Uses yt-dlp with optimized player clients.
         """
         import yt_dlp
         errors = []
 
-        # Strategy 1: Remote EJS JS challenge solver + multiple clients
+        # Strategy 1: Multi-player client selection (iOS, MWeb, Android, Web)
         try:
             ydl_opts = {
                 'quiet': True,
@@ -215,14 +252,13 @@ class VideoExtractorService:
                 'skip_download': True,
                 'socket_timeout': 20,
                 'nocheckcertificate': True,
-                'remote_components': ['ejs:github'],
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['android_vr', 'android', 'ios', 'mweb', 'web', 'tv']
+                        'player_client': ['ios', 'mweb', 'android', 'web']
                     }
                 }
             }
-            logger.info("YouTube yt-dlp: trying strategy 1 (EJS + multi-client)")
+            logger.info("YouTube yt-dlp: trying strategy 1 (ios/mweb clients)")
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
                 if info:
@@ -233,7 +269,7 @@ class VideoExtractorService:
             errors.append(f"Strategy 1: {err}")
             logger.warning(f"YouTube strategy 1 failed: {err}")
 
-        # Strategy 2: Mobile client fallback without EJS requirement
+        # Strategy 2: Mobile client fallback
         try:
             ydl_opts = {
                 'quiet': True,
@@ -244,7 +280,7 @@ class VideoExtractorService:
                 'nocheckcertificate': True,
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['mweb', 'android', 'ios']
+                        'player_client': ['mweb', 'android']
                     }
                 }
             }
@@ -259,7 +295,7 @@ class VideoExtractorService:
             errors.append(f"Strategy 2: {err}")
             logger.warning(f"YouTube strategy 2 failed: {err}")
 
-        # Strategy 3: Standard single format fallback
+        # Strategy 3: Base options fallback
         try:
             ydl_opts = VideoExtractorService._base_ydl_opts()
             logger.info("YouTube yt-dlp: trying strategy 3 (base opts)")
@@ -273,9 +309,15 @@ class VideoExtractorService:
             errors.append(f"Strategy 3: {err}")
             logger.warning(f"YouTube strategy 3 failed: {err}")
 
+        is_bot_block = any("Sign in to confirm" in err or "bot" in err.lower() for err in errors)
+        if is_bot_block:
+            error_msg = "YouTube memblokir permintaan dari server cloud (Vercel IP). YouTube memerlukan autentikasi login atau IP residential untuk platform serverless."
+        else:
+            error_msg = "Gagal mengambil video YouTube. Pastikan link YouTube valid dan video dipublikasikan secara publik."
+
         return {
             "success": False,
-            "error": "Gagal mengambil video YouTube. Pastikan link YouTube valid dan video publik.",
+            "error": error_msg,
             "detail": " | ".join(errors) if errors else "All YouTube extraction strategies failed"
         }
 
@@ -288,7 +330,11 @@ class VideoExtractorService:
         3. SnapInsta API (final fallback)
         """
         import requests as req_lib
-        from bs4 import BeautifulSoup
+        try:
+            from bs4 import BeautifulSoup
+        except ImportError:
+            BeautifulSoup = None
+
         errors = []
 
         # Strategy 1: yt-dlp (most reliable for public content)
@@ -297,14 +343,12 @@ class VideoExtractorService:
             import yt_dlp
 
             def _build_result_from_ytdlp(info: dict) -> dict:
-                """Build standard result dict from yt-dlp info."""
                 video_url = info.get("url") or ""
                 thumbnail = info.get("thumbnail") or "https://images.unsplash.com/photo-1611262588024-d12430b98920?q=80&w=1000&auto=format&fit=crop"
                 title = info.get("title") or info.get("description") or "Instagram Video"
                 author = info.get("uploader") or info.get("channel") or "Instagram Creator"
                 duration = info.get("duration")
                 
-                # Check for separate audio/video streams (DASH)
                 formats = info.get("formats") or []
                 best_video = next((f for f in reversed(formats) if f.get("vcodec") != "none" and f.get("acodec") != "none"), None)
                 if best_video:
@@ -335,7 +379,7 @@ class VideoExtractorService:
 
                 return {
                     "success": True,
-                    "title": title[:100],
+                    "title": str(title)[:100],
                     "thumbnail": thumbnail,
                     "duration": format_duration(int(duration)) if duration else "N/A",
                     "platform": platform,
@@ -345,7 +389,6 @@ class VideoExtractorService:
                     "audio_url": video_url
                 }
 
-            # Try with minimal options first (what actually works)
             ydl_opts = {
                 'quiet': True,
                 'no_warnings': True,
@@ -366,152 +409,157 @@ class VideoExtractorService:
             logger.warning(f"Instagram Strategy 1 (yt-dlp) failed: {err}")
 
         # Strategy 2: InDown scraper
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Referer': 'https://indown.io/',
-            'Origin': 'https://indown.io',
-        }
-        for attempt in range(2):
-            try:
-                logger.info(f"Instagram: trying Strategy 2 (InDown attempt {attempt+1})")
-                session = req_lib.Session()
-                r1 = session.get("https://indown.io/", headers=headers, timeout=(5, 10))
-                token = re.findall(r'name="_token"\s+value="([^"]+)"', r1.text)
-                if token:
-                    r2 = session.post(
-                        "https://indown.io/download",
-                        data={"link": url, "_token": token[0], "referer": "https://indown.io"},
-                        headers=headers,
-                        timeout=(5, 20)
-                    )
-                    if r2.status_code == 200:
-                        soup = BeautifulSoup(r2.text, "html.parser")
-                        video_urls = []
-                        for a in soup.find_all("a", href=True):
-                            href = a['href']
-                            if "cdninstagram.com" in href or "fbcdn.net" in href or ".mp4" in href:
-                                video_urls.append(href)
+        if BeautifulSoup is not None:
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Referer': 'https://indown.io/',
+                'Origin': 'https://indown.io',
+            }
+            for attempt in range(2):
+                try:
+                    logger.info(f"Instagram: trying Strategy 2 (InDown attempt {attempt+1})")
+                    session = req_lib.Session()
+                    r1 = session.get("https://indown.io/", headers=headers, timeout=(5, 10))
+                    token = re.findall(r'name="_token"\s+value="([^"]+)"', r1.text)
+                    if token:
+                        r2 = session.post(
+                            "https://indown.io/download",
+                            data={"link": url, "_token": token[0], "referer": "https://indown.io"},
+                            headers=headers,
+                            timeout=(5, 20)
+                        )
+                        if r2.status_code == 200:
+                            soup = BeautifulSoup(r2.text, "html.parser")
+                            video_urls = []
+                            for a in soup.find_all("a", href=True):
+                                href = a['href']
+                                if "cdninstagram.com" in href or "fbcdn.net" in href or ".mp4" in href:
+                                    video_urls.append(href)
 
-                        img_src = None
-                        for img in soup.find_all("img", src=True):
-                            src = img['src']
-                            if "cdninstagram.com" in src or "fbcdn.net" in src:
-                                img_src = src
-                                break
+                            img_src = None
+                            for img in soup.find_all("img", src=True):
+                                src = img['src']
+                                if "cdninstagram.com" in src or "fbcdn.net" in src:
+                                    img_src = src
+                                    break
 
-                        title = "Instagram Video"
-                        caption = soup.find("div", class_="card-body") or soup.find("p", class_="card-text")
-                        if caption:
-                            text = caption.get_text().strip()
-                            if text:
-                                title = text[:80] + "..." if len(text) > 80 else text
+                            title = "Instagram Video"
+                            caption = soup.find("div", class_="card-body") or soup.find("p", class_="card-text")
+                            if caption:
+                                text = caption.get_text().strip()
+                                if text:
+                                    title = text[:80] + "..." if len(text) > 80 else text
 
-                        if video_urls:
-                            logger.info(f"Instagram Strategy 2 (InDown) succeeded on attempt {attempt+1}")
-                            video_url = video_urls[0]
-                            thumbnail = img_src or "https://images.unsplash.com/photo-1611262588024-d12430b98920?q=80&w=1000&auto=format&fit=crop"
+                            if video_urls:
+                                logger.info(f"Instagram Strategy 2 (InDown) succeeded on attempt {attempt+1}")
+                                video_url = video_urls[0]
+                                thumbnail = img_src or "https://images.unsplash.com/photo-1611262588024-d12430b98920?q=80&w=1000&auto=format&fit=crop"
 
-                            qualities = [
-                                {
-                                    "quality": "1080p Full HD",
-                                    "format": "MP4",
-                                    "resolution": "1080x1920",
-                                    "size": "Direct Download",
-                                    "url": video_url,
-                                    "audio_url": None,
-                                    "has_audio": True,
-                                    "is_audio": False
-                                },
-                                {
-                                    "quality": "MP3 High Quality",
-                                    "format": "MP3",
-                                    "resolution": "320 kbps",
-                                    "size": "Direct Audio",
-                                    "url": video_url,
-                                    "audio_url": None,
-                                    "has_audio": True,
-                                    "is_audio": True
+                                qualities = [
+                                    {
+                                        "quality": "1080p Full HD",
+                                        "format": "MP4",
+                                        "resolution": "1080x1920",
+                                        "size": "Direct Download",
+                                        "url": video_url,
+                                        "audio_url": None,
+                                        "has_audio": True,
+                                        "is_audio": False
+                                    },
+                                    {
+                                        "quality": "MP3 High Quality",
+                                        "format": "MP3",
+                                        "resolution": "320 kbps",
+                                        "size": "Direct Audio",
+                                        "url": video_url,
+                                        "audio_url": None,
+                                        "has_audio": True,
+                                        "is_audio": True
+                                    }
+                                ]
+
+                                return {
+                                    "success": True,
+                                    "title": title,
+                                    "thumbnail": thumbnail,
+                                    "duration": "N/A",
+                                    "platform": platform,
+                                    "author": "Instagram Creator",
+                                    "qualities": qualities,
+                                    "download_url": video_url,
+                                    "audio_url": video_url
                                 }
-                            ]
-
-                            return {
-                                "success": True,
-                                "title": title,
-                                "thumbnail": thumbnail,
-                                "duration": "N/A",
-                                "platform": platform,
-                                "author": "Instagram Creator",
-                                "qualities": qualities,
-                                "download_url": video_url,
-                                "audio_url": video_url
-                            }
-            except Exception as e:
-                err = str(e)
-                errors.append(f"InDown attempt {attempt+1}: {err}")
-                logger.warning(f"Instagram Strategy 2 attempt {attempt+1} failed: {err}")
+                except Exception as e:
+                    err = str(e)
+                    errors.append(f"InDown attempt {attempt+1}: {err}")
+                    logger.warning(f"Instagram Strategy 2 attempt {attempt+1} failed: {err}")
 
         # Strategy 3: SnapInsta fallback API
-        try:
-            logger.info("Instagram: trying Strategy 3 (SnapInsta)")
-            snap_headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-                'Referer': 'https://snapinsta.app/',
-                'Origin': 'https://snapinsta.app',
-            }
-            r = req_lib.post("https://snapinsta.app/action2.php", data={"url": url, "action": "post"}, headers=snap_headers, timeout=8)
-            if r.status_code == 200:
-                soup = BeautifulSoup(r.text, "html.parser")
-                video_urls = [a['href'] for a in soup.find_all("a", href=True) if "cdninstagram" in a['href'] or "fbcdn" in a['href'] or ".mp4" in a['href']]
-                img_tag = soup.find("img", src=True)
-                if video_urls:
-                    logger.info("Instagram Strategy 3 (SnapInsta) succeeded")
-                    video_url = video_urls[0]
-                    thumbnail = img_tag['src'] if img_tag else "https://images.unsplash.com/photo-1611262588024-d12430b98920?q=80&w=1000&auto=format&fit=crop"
+        if BeautifulSoup is not None:
+            try:
+                logger.info("Instagram: trying Strategy 3 (SnapInsta)")
+                snap_headers = {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+                    'Referer': 'https://snapinsta.app/',
+                    'Origin': 'https://snapinsta.app',
+                }
+                r = req_lib.post("https://snapinsta.app/action2.php", data={"url": url, "action": "post"}, headers=snap_headers, timeout=8)
+                if r.status_code == 200:
+                    soup = BeautifulSoup(r.text, "html.parser")
+                    video_urls = [a['href'] for a in soup.find_all("a", href=True) if "cdninstagram" in a['href'] or "fbcdn" in a['href'] or ".mp4" in a['href']]
+                    img_tag = soup.find("img", src=True)
+                    if video_urls:
+                        logger.info("Instagram Strategy 3 (SnapInsta) succeeded")
+                        video_url = video_urls[0]
+                        thumbnail = img_tag['src'] if img_tag else "https://images.unsplash.com/photo-1611262588024-d12430b98920?q=80&w=1000&auto=format&fit=crop"
 
-                    qualities = [
-                        {
-                            "quality": "1080p Full HD",
-                            "format": "MP4",
-                            "resolution": "1080x1920",
-                            "size": "Direct Download",
-                            "url": video_url,
-                            "audio_url": None,
-                            "has_audio": True,
-                            "is_audio": False
-                        },
-                        {
-                            "quality": "MP3 High Quality",
-                            "format": "MP3",
-                            "resolution": "320 kbps",
-                            "size": "Direct Audio",
-                            "url": video_url,
-                            "audio_url": None,
-                            "has_audio": True,
-                            "is_audio": True
+                        qualities = [
+                            {
+                                "quality": "1080p Full HD",
+                                "format": "MP4",
+                                "resolution": "1080x1920",
+                                "size": "Direct Download",
+                                "url": video_url,
+                                "audio_url": None,
+                                "has_audio": True,
+                                "is_audio": False
+                            },
+                            {
+                                "quality": "MP3 High Quality",
+                                "format": "MP3",
+                                "resolution": "320 kbps",
+                                "size": "Direct Audio",
+                                "url": video_url,
+                                "audio_url": None,
+                                "has_audio": True,
+                                "is_audio": True
+                            }
+                        ]
+
+                        return {
+                            "success": True,
+                            "title": "Instagram Video Download",
+                            "thumbnail": thumbnail,
+                            "duration": "N/A",
+                            "platform": platform,
+                            "author": "Instagram Creator",
+                            "qualities": qualities,
+                            "download_url": video_url,
+                            "audio_url": video_url
                         }
-                    ]
+            except Exception as e:
+                err = str(e)
+                errors.append(f"SnapInsta: {err}")
+                logger.warning(f"Instagram Strategy 3 failed: {err}")
 
-                    return {
-                        "success": True,
-                        "title": "Instagram Video Download",
-                        "thumbnail": thumbnail,
-                        "duration": "N/A",
-                        "platform": platform,
-                        "author": "Instagram Creator",
-                        "qualities": qualities,
-                        "download_url": video_url,
-                        "audio_url": video_url
-                    }
-        except Exception as e:
-            err = str(e)
-            errors.append(f"SnapInsta: {err}")
-            logger.warning(f"Instagram Strategy 3 failed: {err}")
+        is_login = any("login" in err.lower() or "empty media" in err.lower() for err in errors)
+        error_msg = "Postingan Instagram ini memerlukan login atau bersifat privat." if is_login else "Gagal mengambil video Instagram. Pastikan URL valid dan postingan bersifat publik."
 
         return {
             "success": False,
-            "error": "Gagal mengambil video Instagram. Pastikan URL valid dan postingan bersifat publik.",
+            "error": error_msg,
             "detail": " | ".join(errors) if errors else "All Instagram extraction strategies failed"
         }
 
@@ -519,15 +567,18 @@ class VideoExtractorService:
     def _extract_facebook(url: str, platform: str) -> Dict[str, Any]:
         """
         Dedicated Facebook extractor with multi-strategy fallback:
-        1. Snapsave mobile scraper + JS unpacker (primary, extracts direct HD/SD MP4 URLs)
+        1. Snapsave mobile scraper + Pure Python JS unpacker
         2. yt-dlp fallback
         """
         import requests as req_lib
-        import subprocess
-        from bs4 import BeautifulSoup
-        errors = []
+        try:
+            from bs4 import BeautifulSoup
+        except ImportError:
+            BeautifulSoup = None
 
+        errors = []
         target_url = url
+
         # Expand short/share URLs (like fb.watch or /share/)
         try:
             if "fb.watch" in target_url or "/share/" in target_url:
@@ -542,26 +593,24 @@ class VideoExtractorService:
         except Exception as e:
             logger.warning(f"Facebook URL expansion failed: {e}")
 
-        # Strategy 1: Snapsave with mobile UA and Node unpacker
-        try:
-            logger.info("Facebook: trying Strategy 1 (Snapsave mobile)")
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
-                'Referer': 'https://snapsave.app/',
-                'Origin': 'https://snapsave.app',
-            }
-            r = req_lib.post("https://snapsave.app/action.php", data={"url": target_url}, headers=headers, timeout=10)
-            if r.status_code == 200:
-                text = r.text
-                eval_pos = text.find("eval")
-                if eval_pos != -1:
-                    node_script = text[:eval_pos] + "console.log((" + text[eval_pos+5:-1] + "));"
-                    proc = subprocess.run(["node"], input=node_script, capture_output=True, text=True, timeout=5)
-                    unpacked_html = proc.stdout.replace('\\"', '"').replace('\\/', '/')
+        # Strategy 1: Snapsave with pure Python JS unpacker
+        if BeautifulSoup is not None:
+            try:
+                logger.info("Facebook: trying Strategy 1 (Snapsave pure Python unpacker)")
+                headers = {
+                    'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
+                    'Referer': 'https://snapsave.app/',
+                    'Origin': 'https://snapsave.app',
+                }
+                r = req_lib.post("https://snapsave.app/action.php", data={"url": target_url}, headers=headers, timeout=10)
+                if r.status_code == 200:
+                    unpacked_html = _unpack_js(r.text)
+                    if not unpacked_html:
+                        unpacked_html = r.text
 
                     soup = BeautifulSoup(unpacked_html, "html.parser")
                     video_links = []
-                    
+
                     for tr in soup.find_all("tr"):
                         tds = tr.find_all("td")
                         a = tr.find("a", href=True)
@@ -624,10 +673,10 @@ class VideoExtractorService:
                             "download_url": video_links[0]['url'],
                             "audio_url": video_links[0]['url']
                         }
-        except Exception as e:
-            err = str(e)
-            errors.append(f"Snapsave: {err}")
-            logger.warning(f"Facebook Strategy 1 (Snapsave) failed: {err}")
+            except Exception as e:
+                err = str(e)
+                errors.append(f"Snapsave: {err}")
+                logger.warning(f"Facebook Strategy 1 (Snapsave) failed: {err}")
 
         # Strategy 2: yt-dlp fallback
         try:
@@ -662,15 +711,17 @@ class VideoExtractorService:
     def _extract_twitter(url: str, platform: str) -> Dict[str, Any]:
         """
         Dedicated Twitter/X extractor with multi-strategy fallback:
-        1. yt-dlp with no_cache_dir and custom UA (primary, extracts all MP4 resolutions)
+        1. yt-dlp with target_url (normalizing x.com to twitter.com)
         2. SSSTwitter API scraper fallback
         """
         import requests as req_lib
-        from bs4 import BeautifulSoup
-        errors = []
+        try:
+            from bs4 import BeautifulSoup
+        except ImportError:
+            BeautifulSoup = None
 
+        errors = []
         target_url = url
-        # Normalize x.com to twitter.com if needed or keep target_url
         if "x.com" in target_url:
             target_url = target_url.replace("x.com", "twitter.com")
 
@@ -691,93 +742,93 @@ class VideoExtractorService:
                 }
             }
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=False)
+                info = ydl.extract_info(target_url, download=False)
                 if info and (info.get("url") or info.get("formats")):
                     logger.info("Twitter/X Strategy 1 (yt-dlp) succeeded")
-                    return VideoExtractorService._parse_ytdlp_info(info, platform, url)
+                    return VideoExtractorService._parse_ytdlp_info(info, platform, target_url)
         except Exception as e:
             err = str(e)
             errors.append(f"yt-dlp: {err}")
             logger.warning(f"Twitter/X Strategy 1 (yt-dlp) failed: {err}")
 
         # Strategy 2: SSSTwitter API scraper
-        try:
-            logger.info("Twitter/X: trying Strategy 2 (SSSTwitter)")
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-                'Accept': '*/*',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-                'HX-Request': 'true',
-                'HX-Target': 'target',
-                'HX-Current-URL': 'https://ssstwitter.com/en',
-                'Referer': 'https://ssstwitter.com/en',
-                'Origin': 'https://ssstwitter.com',
-            }
-            session = req_lib.Session()
-            r1 = session.get("https://ssstwitter.com/en", headers=headers, timeout=8)
-            if r1.status_code == 200:
-                soup = BeautifulSoup(r1.text, "html.parser")
-                form = soup.find("form", attrs={"include-vals": True}) or soup.find("form")
-                if form:
-                    include_vals_str = form.get("include-vals", "")
-                    tt = (re.findall(r"tt:\s*['\"]([^'\"]+)['\"]", include_vals_str) or [""])[0]
-                    ts = (re.findall(r"ts:\s*(\d+)", include_vals_str) or [""])[0]
+        if BeautifulSoup is not None:
+            try:
+                logger.info("Twitter/X: trying Strategy 2 (SSSTwitter)")
+                headers = {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+                    'Accept': '*/*',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                    'HX-Request': 'true',
+                    'HX-Target': 'target',
+                    'HX-Current-URL': 'https://ssstwitter.com/en',
+                    'Referer': 'https://ssstwitter.com/en',
+                    'Origin': 'https://ssstwitter.com',
+                }
+                session = req_lib.Session()
+                r1 = session.get("https://ssstwitter.com/en", headers=headers, timeout=8)
+                if r1.status_code == 200:
+                    soup = BeautifulSoup(r1.text, "html.parser")
+                    form = soup.find("form", attrs={"include-vals": True}) or soup.find("form")
+                    if form:
+                        include_vals_str = form.get("include-vals", "")
+                        tt = (re.findall(r"tt:\s*['\"]([^'\"]+)['\"]", include_vals_str) or [""])[0]
+                        ts = (re.findall(r"ts:\s*(\d+)", include_vals_str) or [""])[0]
 
-                    post_data = f"id={req_lib.utils.quote(url)}&locale=en&tt={tt}&ts={ts}&source=form"
-                    r2 = session.post("https://ssstwitter.com/id", data=post_data, headers=headers, timeout=10)
+                        post_data = f"id={req_lib.utils.quote(target_url)}&locale=en&tt={tt}&ts={ts}&source=form"
+                        r2 = session.post("https://ssstwitter.com/id", data=post_data, headers=headers, timeout=10)
 
-                    if r2.status_code == 200:
-                        soup2 = BeautifulSoup(r2.text, "html.parser")
-                        video_links = []
-                        for a in soup2.find_all("a", href=True):
-                            href = a['href']
-                            if href.startswith("http") and ("twimg.com" in href or ".mp4" in href or "ssstwitter" in href):
-                                quality = a.get_text(strip=True) or "HD Video"
-                                video_links.append({"quality": quality, "url": href})
+                        if r2.status_code == 200:
+                            soup2 = BeautifulSoup(r2.text, "html.parser")
+                            video_links = []
+                            for a in soup2.find_all("a", href=True):
+                                href = a['href']
+                                if href.startswith("http") and ("twimg.com" in href or ".mp4" in href or "ssstwitter" in href):
+                                    quality = a.get_text(strip=True) or "HD Video"
+                                    video_links.append({"quality": quality, "url": href})
 
-                        if video_links:
-                            logger.info("Twitter/X Strategy 2 (SSSTwitter) succeeded")
-                            qualities = []
-                            for v in video_links:
+                            if video_links:
+                                logger.info("Twitter/X Strategy 2 (SSSTwitter) succeeded")
+                                qualities = []
+                                for v in video_links:
+                                    qualities.append({
+                                        "quality": f"Twitter {v['quality']}",
+                                        "format": "MP4",
+                                        "resolution": "720p/1080p",
+                                        "size": "Direct Download",
+                                        "url": v['url'],
+                                        "audio_url": None,
+                                        "has_audio": True,
+                                        "is_audio": False
+                                    })
                                 qualities.append({
-                                    "quality": f"Twitter {v['quality']}",
-                                    "format": "MP4",
-                                    "resolution": "720p/1080p",
-                                    "size": "Direct Download",
-                                    "url": v['url'],
+                                    "quality": "MP3 High Quality",
+                                    "format": "MP3",
+                                    "resolution": "320 kbps",
+                                    "size": "Direct Audio",
+                                    "url": video_links[0]['url'],
                                     "audio_url": None,
                                     "has_audio": True,
-                                    "is_audio": False
+                                    "is_audio": True
                                 })
-                            qualities.append({
-                                "quality": "MP3 High Quality",
-                                "format": "MP3",
-                                "resolution": "320 kbps",
-                                "size": "Direct Audio",
-                                "url": video_links[0]['url'],
-                                "audio_url": None,
-                                "has_audio": True,
-                                "is_audio": True
-                            })
 
-                            return {
-                                "success": True,
-                                "title": "Twitter/X Video Download",
-                                "thumbnail": "https://images.unsplash.com/photo-1611605698335-8b1569810432?q=80&w=1000&auto=format&fit=crop",
-                                "duration": "N/A",
-                                "platform": platform,
-                                "author": "Twitter Creator",
-                                "qualities": qualities,
-                                "download_url": video_links[0]['url'],
-                                "audio_url": video_links[0]['url']
-                            }
-        except Exception as e:
-            err = str(e)
-            errors.append(f"SSSTwitter: {err}")
-            logger.warning(f"Twitter/X Strategy 2 failed: {err}")
+                                return {
+                                    "success": True,
+                                    "title": "Twitter/X Video Download",
+                                    "thumbnail": "https://images.unsplash.com/photo-1611605698335-8b1569810432?q=80&w=1000&auto=format&fit=crop",
+                                    "duration": "N/A",
+                                    "platform": platform,
+                                    "author": "Twitter Creator",
+                                    "qualities": qualities,
+                                    "download_url": video_links[0]['url'],
+                                    "audio_url": video_links[0]['url']
+                                }
+            except Exception as e:
+                err = str(e)
+                errors.append(f"SSSTwitter: {err}")
+                logger.warning(f"Twitter/X Strategy 2 failed: {err}")
 
-        # Check if the error from yt-dlp was "No video could be found in this tweet"
         is_no_video = any("No video could be found" in err for err in errors)
         error_msg = "Post Twitter/X ini tidak memiliki video (hanya teks/gambar), atau postingan bersifat privat." if is_no_video else "Gagal mengambil video Twitter/X. Pastikan URL valid dan postingan bersifat publik."
 
