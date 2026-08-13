@@ -237,13 +237,13 @@ class VideoExtractorService:
     @staticmethod
     def _extract_youtube(url: str, platform: str) -> Dict[str, Any]:
         """
-        Dedicated YouTube extractor with 4 multi-client fallback strategies.
-        Optimized for datacenter/cloud IPs (Railway, AWS, Vercel) to extract all available resolutions (144p to 4K).
+        Dedicated YouTube extractor with multi-client fallback strategies.
+        Bypasses cloud IP bot restrictions (Railway/AWS) using standalone tv_embedded and android_vr clients.
         """
         import yt_dlp
         errors = []
 
-        # Strategy 1: Android VR + Web player clients (returns full DASH resolution spectrum 144p-2160p)
+        # Strategy 1: tv_embedded (bypasses bot-check on datacenter IPs & extracts all resolutions)
         try:
             ydl_opts = {
                 'quiet': True,
@@ -254,22 +254,22 @@ class VideoExtractorService:
                 'nocheckcertificate': True,
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['android_vr', 'web']
+                        'player_client': ['tv_embedded']
                     }
                 }
             }
-            logger.info("YouTube yt-dlp: trying strategy 1 (android_vr/web clients)")
+            logger.info("YouTube yt-dlp: trying strategy 1 (tv_embedded client)")
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
                 if info:
-                    logger.info("YouTube extraction succeeded with strategy 1")
+                    logger.info("YouTube extraction succeeded with strategy 1 (tv_embedded)")
                     return VideoExtractorService._parse_ytdlp_info(info, platform, url)
         except Exception as e:
             err = str(e)
-            errors.append(f"Strategy 1: {err}")
+            errors.append(f"Strategy 1 (tv_embedded): {err}")
             logger.warning(f"YouTube strategy 1 failed: {err}")
 
-        # Strategy 2: Android VR + Web player clients (full resolution spectrum 144p-2160p)
+        # Strategy 2: android_vr (full resolution spectrum fallback)
         try:
             ydl_opts = {
                 'quiet': True,
@@ -280,36 +280,22 @@ class VideoExtractorService:
                 'nocheckcertificate': True,
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['android_vr', 'web']
+                        'player_client': ['android_vr']
                     }
                 }
             }
-            logger.info("YouTube yt-dlp: trying strategy 2 (android_vr/web clients)")
+            logger.info("YouTube yt-dlp: trying strategy 2 (android_vr client)")
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
                 if info:
-                    logger.info("YouTube extraction succeeded with strategy 2")
+                    logger.info("YouTube extraction succeeded with strategy 2 (android_vr)")
                     return VideoExtractorService._parse_ytdlp_info(info, platform, url)
         except Exception as e:
             err = str(e)
-            errors.append(f"Strategy 2: {err}")
+            errors.append(f"Strategy 2 (android_vr): {err}")
             logger.warning(f"YouTube strategy 2 failed: {err}")
 
-        # Strategy 3: Base yt-dlp options (unrestricted default player clients)
-        try:
-            ydl_opts = VideoExtractorService._base_ydl_opts()
-            logger.info("YouTube yt-dlp: trying strategy 3 (base opts)")
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=False)
-                if info:
-                    logger.info("YouTube extraction succeeded with strategy 3")
-                    return VideoExtractorService._parse_ytdlp_info(info, platform, url)
-        except Exception as e:
-            err = str(e)
-            errors.append(f"Strategy 3: {err}")
-            logger.warning(f"YouTube strategy 3 failed: {err}")
-
-        # Strategy 4: MWeb + Mobile fallback (bypasses heavy bot blocks on datacenter IPs)
+        # Strategy 3: android mobile client fallback
         try:
             ydl_opts = {
                 'quiet': True,
@@ -320,19 +306,33 @@ class VideoExtractorService:
                 'nocheckcertificate': True,
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['mweb', 'android']
+                        'player_client': ['android']
                     }
                 }
             }
-            logger.info("YouTube yt-dlp: trying strategy 4 (mweb/android fallback)")
+            logger.info("YouTube yt-dlp: trying strategy 3 (android client)")
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
                 if info:
-                    logger.info("YouTube extraction succeeded with strategy 4")
+                    logger.info("YouTube extraction succeeded with strategy 3 (android)")
                     return VideoExtractorService._parse_ytdlp_info(info, platform, url)
         except Exception as e:
             err = str(e)
-            errors.append(f"Strategy 4: {err}")
+            errors.append(f"Strategy 3 (android): {err}")
+            logger.warning(f"YouTube strategy 3 failed: {err}")
+
+        # Strategy 4: Base yt-dlp options (unrestricted default player clients)
+        try:
+            ydl_opts = VideoExtractorService._base_ydl_opts()
+            logger.info("YouTube yt-dlp: trying strategy 4 (base opts)")
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+                if info:
+                    logger.info("YouTube extraction succeeded with strategy 4 (base opts)")
+                    return VideoExtractorService._parse_ytdlp_info(info, platform, url)
+        except Exception as e:
+            err = str(e)
+            errors.append(f"Strategy 4 (base opts): {err}")
             logger.warning(f"YouTube strategy 4 failed: {err}")
 
         is_bot_block = any("Sign in to confirm" in err or "bot" in err.lower() for err in errors)
