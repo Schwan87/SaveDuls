@@ -7,6 +7,9 @@
 
 document.addEventListener('DOMContentLoaded', () => {
 
+    // ─── API Base URL (Set Railway domain for Vercel -> Railway backend) ─
+    const API_BASE_URL = window.RAILWAY_BACKEND_URL || '';
+
     // ─── DOM References ──────────────────────────────────────
     const urlForm          = document.getElementById('url-form');
     const urlInput         = document.getElementById('video-url-input');
@@ -146,7 +149,7 @@ document.addEventListener('DOMContentLoaded', () => {
         startLoading();
 
         try {
-            const response = await fetch('/download', {
+            const response = await fetch(`${API_BASE_URL}/download`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ url })
@@ -332,7 +335,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         showToast(`Starting ${format.toUpperCase()} download…`, 'info');
-        let endpoint = `/proxy-download?url=${encodeURIComponent(mediaUrl)}&filename=${encodeURIComponent(filename || 'video')}&ext=${format}`;
+        let endpoint = `${API_BASE_URL}/proxy-download?url=${encodeURIComponent(mediaUrl)}&filename=${encodeURIComponent(filename || 'video')}&ext=${format}`;
         if (audioUrl && format.toLowerCase() === 'mp4') {
             endpoint += `&audio_url=${encodeURIComponent(audioUrl)}`;
         }
