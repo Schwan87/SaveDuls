@@ -1,4 +1,4 @@
-# Fast Video Downloader 🚀
+# SaveDuls
 
 A modern, fast, professional, and responsive SaaS-style Video Downloader web application built with **Python FastAPI**, **Vanilla JavaScript**, and **Tailwind CSS**.
 
