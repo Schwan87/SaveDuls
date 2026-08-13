@@ -12,8 +12,9 @@ _BROWSER_HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
     'Accept-Language': 'en-US,en;q=0.9',
-    'Accept-Encoding': 'gzip, deflate, br',
+    'Accept-Encoding': 'gzip, deflate',
 }
+
 
 # TikTok extraction strategies tried in order — different UAs bypass different blocks
 _TIKTOK_STRATEGIES = [
@@ -238,106 +239,54 @@ class VideoExtractorService:
     def _extract_youtube(url: str, platform: str) -> Dict[str, Any]:
         """
         Dedicated YouTube extractor with multi-client fallback strategies.
-        Bypasses cloud IP bot restrictions (Railway/AWS) using standalone tv_embedded and android_vr clients.
+        Uses yt-dlp to extract all progressive and DASH video/audio formats.
         """
         import yt_dlp
         errors = []
 
-        # Strategy 1: tv_embedded (bypasses bot-check on datacenter IPs & extracts all resolutions)
-        try:
-            ydl_opts = {
-                'quiet': True,
-                'no_warnings': True,
-                'extract_flat': False,
-                'skip_download': True,
-                'socket_timeout': 20,
-                'nocheckcertificate': True,
-                'extractor_args': {
-                    'youtube': {
-                        'player_client': ['tv_embedded']
-                    }
-                }
-            }
-            logger.info("YouTube yt-dlp: trying strategy 1 (tv_embedded client)")
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=False)
-                if info:
-                    logger.info("YouTube extraction succeeded with strategy 1 (tv_embedded)")
-                    return VideoExtractorService._parse_ytdlp_info(info, platform, url)
-        except Exception as e:
-            err = str(e)
-            errors.append(f"Strategy 1 (tv_embedded): {err}")
-            logger.warning(f"YouTube strategy 1 failed: {err}")
-
-        # Strategy 2: android_vr (full resolution spectrum fallback)
-        try:
-            ydl_opts = {
-                'quiet': True,
-                'no_warnings': True,
-                'extract_flat': False,
-                'skip_download': True,
-                'socket_timeout': 20,
-                'nocheckcertificate': True,
-                'extractor_args': {
-                    'youtube': {
-                        'player_client': ['android_vr']
-                    }
-                }
-            }
-            logger.info("YouTube yt-dlp: trying strategy 2 (android_vr client)")
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=False)
-                if info:
-                    logger.info("YouTube extraction succeeded with strategy 2 (android_vr)")
-                    return VideoExtractorService._parse_ytdlp_info(info, platform, url)
-        except Exception as e:
-            err = str(e)
-            errors.append(f"Strategy 2 (android_vr): {err}")
-            logger.warning(f"YouTube strategy 2 failed: {err}")
-
-        # Strategy 3: android mobile client fallback
-        try:
-            ydl_opts = {
-                'quiet': True,
-                'no_warnings': True,
-                'extract_flat': False,
-                'skip_download': True,
-                'socket_timeout': 20,
-                'nocheckcertificate': True,
-                'extractor_args': {
-                    'youtube': {
-                        'player_client': ['android']
-                    }
-                }
-            }
-            logger.info("YouTube yt-dlp: trying strategy 3 (android client)")
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=False)
-                if info:
-                    logger.info("YouTube extraction succeeded with strategy 3 (android)")
-                    return VideoExtractorService._parse_ytdlp_info(info, platform, url)
-        except Exception as e:
-            err = str(e)
-            errors.append(f"Strategy 3 (android): {err}")
-            logger.warning(f"YouTube strategy 3 failed: {err}")
-
-        # Strategy 4: Base yt-dlp options (unrestricted default player clients)
+        # Strategy 1: Base yt-dlp options (fetches web + android DASH formats including 1080p, 720p, 4K)
         try:
             ydl_opts = VideoExtractorService._base_ydl_opts()
-            logger.info("YouTube yt-dlp: trying strategy 4 (base opts)")
+            logger.info("YouTube yt-dlp: trying strategy 1 (base opts)")
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
                 if info:
-                    logger.info("YouTube extraction succeeded with strategy 4 (base opts)")
+                    logger.info("YouTube extraction succeeded with strategy 1")
                     return VideoExtractorService._parse_ytdlp_info(info, platform, url)
         except Exception as e:
             err = str(e)
-            errors.append(f"Strategy 4 (base opts): {err}")
-            logger.warning(f"YouTube strategy 4 failed: {err}")
+            errors.append(f"Strategy 1: {err}")
+            logger.warning(f"YouTube strategy 1 failed: {err}")
+
+        # Strategy 2: Mobile client fallback
+        try:
+            ydl_opts = {
+                'quiet': True,
+                'no_warnings': True,
+                'extract_flat': False,
+                'skip_download': True,
+                'socket_timeout': 20,
+                'nocheckcertificate': True,
+                'extractor_args': {
+                    'youtube': {
+                        'player_client': ['mweb', 'android']
+                    }
+                }
+            }
+            logger.info("YouTube yt-dlp: trying strategy 2 (mobile clients)")
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+                if info:
+                    logger.info("YouTube extraction succeeded with strategy 2")
+                    return VideoExtractorService._parse_ytdlp_info(info, platform, url)
+        except Exception as e:
+            err = str(e)
+            errors.append(f"Strategy 2: {err}")
+            logger.warning(f"YouTube strategy 2 failed: {err}")
 
         is_bot_block = any("Sign in to confirm" in err or "bot" in err.lower() for err in errors)
         if is_bot_block:
-            error_msg = "YouTube memblokir permintaan dari IP server cloud (Railway IP). YouTube memerlukan autentikasi login atau IP residential untuk video ini."
+            error_msg = "YouTube memblokir permintaan dari server cloud (Vercel IP). YouTube memerlukan autentikasi login atau IP residential untuk platform serverless."
         else:
             error_msg = "Gagal mengambil video YouTube. Pastikan link YouTube valid dan video dipublikasikan secara publik."
 
@@ -351,7 +300,7 @@ class VideoExtractorService:
     def _extract_instagram(url: str, platform: str) -> Dict[str, Any]:
         """
         Dedicated Instagram extractor with multi-strategy fallback:
-        1. yt-dlp (primary — parses all available resolution streams)
+        1. yt-dlp (primary — works best for public reels/posts)
         2. InDown scraper (fallback when yt-dlp hits rate limits)
         3. SnapInsta API (final fallback)
         """
@@ -368,6 +317,53 @@ class VideoExtractorService:
             logger.info("Instagram: trying Strategy 1 (yt-dlp)")
             import yt_dlp
 
+            def _build_result_from_ytdlp(info: dict) -> dict:
+                video_url = info.get("url") or ""
+                thumbnail = info.get("thumbnail") or "https://images.unsplash.com/photo-1611262588024-d12430b98920?q=80&w=1000&auto=format&fit=crop"
+                title = info.get("title") or info.get("description") or "Instagram Video"
+                author = info.get("uploader") or info.get("channel") or "Instagram Creator"
+                duration = info.get("duration")
+                
+                formats = info.get("formats") or []
+                best_video = next((f for f in reversed(formats) if f.get("vcodec") != "none" and f.get("acodec") != "none"), None)
+                if best_video:
+                    video_url = best_video.get("url") or video_url
+
+                qualities = [
+                    {
+                        "quality": "Best Quality",
+                        "format": "MP4",
+                        "resolution": f"{info.get('width', 0)}x{info.get('height', 0)}" if info.get("width") else "1080x1920",
+                        "size": format_filesize(info.get("filesize") or info.get("filesize_approx") or 0),
+                        "url": video_url,
+                        "audio_url": None,
+                        "has_audio": True,
+                        "is_audio": False
+                    },
+                    {
+                        "quality": "MP3 High Quality",
+                        "format": "MP3",
+                        "resolution": "320 kbps",
+                        "size": "Direct Audio",
+                        "url": video_url,
+                        "audio_url": None,
+                        "has_audio": True,
+                        "is_audio": True
+                    }
+                ]
+
+                return {
+                    "success": True,
+                    "title": str(title)[:100],
+                    "thumbnail": thumbnail,
+                    "duration": format_duration(int(duration)) if duration else "N/A",
+                    "platform": platform,
+                    "author": author,
+                    "qualities": qualities,
+                    "download_url": video_url,
+                    "audio_url": video_url
+                }
+
             ydl_opts = {
                 'quiet': True,
                 'no_warnings': True,
@@ -381,7 +377,7 @@ class VideoExtractorService:
                 info = ydl.extract_info(url, download=False)
                 if info and (info.get("url") or info.get("formats")):
                     logger.info("Instagram Strategy 1 (yt-dlp) succeeded")
-                    return VideoExtractorService._parse_ytdlp_info(info, platform, url)
+                    return _build_result_from_ytdlp(info)
         except Exception as e:
             err = str(e)
             errors.append(f"yt-dlp: {err}")
@@ -861,125 +857,94 @@ class VideoExtractorService:
 
     @staticmethod
     def _parse_ytdlp_info(info: Dict[str, Any], platform: str, original_url: str) -> Dict[str, Any]:
-        """Parse raw yt-dlp dictionary into client-ready response format."""
+        """Parse raw yt-dlp dictionary into client-ready response format with complete video & audio formats."""
         title = info.get('title') or f"Video from {platform}"
         thumbnail = info.get('thumbnail') or info.get('thumbnails', [{}])[-1].get('url') or "https://images.unsplash.com/photo-1611162617474-5b21e879e113?q=80&w=1000&auto=format&fit=crop"
         duration_sec = info.get('duration') or 0
         duration_str = format_duration(duration_sec)
         uploader = info.get('uploader') or info.get('channel') or platform
-        
-        qualities: List[Dict[str, Any]] = []
+
         formats = info.get('formats', [])
 
-        if platform.lower() == 'youtube':
-            logger.info(f"[YOUTUBE FORMATS AUDIT] URL: {original_url} | Total raw formats: {len(formats)}")
-            for fmt in formats:
-                fid = fmt.get('format_id')
-                h = fmt.get('height')
-                w = fmt.get('width')
-                ext = fmt.get('ext')
-                vcodec = fmt.get('vcodec')
-                acodec = fmt.get('acodec')
-                fs = fmt.get('filesize') or fmt.get('filesize_approx')
-                proto = fmt.get('protocol')
-                logger.info(f"[YOUTUBE FORMAT] id={fid} height={h} width={w} ext={ext} vcodec={vcodec} acodec={acodec} filesize={fs} protocol={proto}")
-
-        # Find best standalone audio stream URL
+        # 1. Find best standalone audio stream URL
         best_audio_url = None
         for fmt in reversed(formats):
             if fmt.get('acodec') != 'none' and fmt.get('vcodec') == 'none' and fmt.get('url'):
-                best_audio_url = fmt['url']
-                break
-        added_resolutions = set()
+                if fmt.get('ext') == 'm4a' or 'mp4a' in str(fmt.get('acodec')):
+                    best_audio_url = fmt['url']
+                    break
+                elif not best_audio_url:
+                    best_audio_url = fmt['url']
 
-        def _format_quality_tag(h: int) -> str:
-            if h >= 2160:
-                return f"{h}p 4K Ultra HD"
-            elif h >= 1440:
-                return f"{h}p 2K QHD"
-            elif h >= 1080:
-                return f"{h}p Full HD"
-            elif h >= 720:
-                return f"{h}p HD"
-            else:
-                return f"{h}p SD"
-
-        # Prioritize H.264 (avc1) codec formats over AV1/VP9 for universal Windows/Mac/Mobile compatibility
-        def _codec_score(f: dict) -> int:
-            vc = str(f.get('vcodec', '')).lower()
-            score = 0
-            if 'avc1' in vc or 'h264' in vc:
-                score += 100
-            elif 'vp9' in vc or 'vp09' in vc:
-                score += 50
-            elif 'av01' in vc or 'av1' in vc:
-                score += 10
-            if f.get('ext') == 'mp4':
-                score += 5
-            return score
-
-        sorted_formats = sorted(formats, key=_codec_score, reverse=True)
-
-        # Pass 1: Progressive formats (video + audio in one stream)
-        for fmt in sorted_formats:
-            height = fmt.get('height')
-            vcodec = str(fmt.get('vcodec', 'none')).lower()
-            acodec = str(fmt.get('acodec', 'none')).lower()
+        # 2. Group video formats by resolution (height)
+        video_formats_by_height: Dict[int, List[Dict[str, Any]]] = {}
+        for fmt in formats:
+            h = fmt.get('height')
+            vc = fmt.get('vcodec', 'none')
             url = fmt.get('url')
-            
-            if height and vcodec != 'none' and acodec != 'none' and url and height not in added_resolutions:
-                added_resolutions.add(height)
-                filesize = fmt.get('filesize') or fmt.get('filesize_approx') or (height * 100000)
-                quality_label = _format_quality_tag(height)
-                qualities.append({
-                    "label": quality_label,
-                    "quality": quality_label,
-                    "height": height,
-                    "format_id": str(fmt.get('format_id', '')),
-                    "format": "MP4",
-                    "ext": "mp4",
-                    "resolution": f"{fmt.get('width', '1920')}x{height}",
-                    "size": format_filesize(filesize),
-                    "url": url,
-                    "audio_url": None,
-                    "has_audio": True,
-                    "is_audio": False
-                })
 
-        # Pass 2: Adaptive video formats (fill in remaining resolutions with standalone audio link)
-        for fmt in sorted_formats:
-            height = fmt.get('height')
-            vcodec = str(fmt.get('vcodec', 'none')).lower()
-            url = fmt.get('url')
-            
-            if height and vcodec != 'none' and url and height not in added_resolutions:
-                added_resolutions.add(height)
-                filesize = fmt.get('filesize') or fmt.get('filesize_approx') or (height * 100000)
-                quality_label = _format_quality_tag(height)
-                qualities.append({
-                    "label": quality_label,
-                    "quality": quality_label,
-                    "height": height,
-                    "format_id": str(fmt.get('format_id', '')),
-                    "format": "MP4",
-                    "ext": "mp4",
-                    "resolution": f"{fmt.get('width', '1920')}x{height}",
-                    "size": format_filesize(filesize),
-                    "url": url,
-                    "audio_url": best_audio_url,
-                    "has_audio": False,
-                    "is_audio": False
-                })
-        
-        # If no specific formats extracted, add default URL format
+            if not h or int(h) < 144 or vc == 'none' or not url:
+                continue
+
+            # Ignore mhtml / storyboard protocols
+            if fmt.get('ext') == 'mhtml' or fmt.get('protocol') == 'mhtml':
+                continue
+
+            h_int = int(h)
+            if h_int not in video_formats_by_height:
+                video_formats_by_height[h_int] = []
+            video_formats_by_height[h_int].append(fmt)
+
+        qualities: List[Dict[str, Any]] = []
+
+        # 3. Select best video format for each resolution height (descending order)
+        for h in sorted(video_formats_by_height.keys(), reverse=True):
+            fmts_for_h = video_formats_by_height[h]
+
+            def fmt_score(f: Dict[str, Any]) -> float:
+                score = 0.0
+                ext = f.get('ext', '')
+                vc = f.get('vcodec', '')
+                ac = f.get('acodec', '')
+                if ext == 'mp4':
+                    score += 50.0
+                if 'avc1' in vc:
+                    score += 30.0
+                if ac != 'none':
+                    score += 10.0  # Progressive stream bonus
+                fs = f.get('filesize') or f.get('filesize_approx') or 0
+                score += min(fs / 1000000.0, 20.0)
+                return score
+
+            best_fmt = max(fmts_for_h, key=fmt_score)
+            fid = str(best_fmt.get('format_id'))
+            width = best_fmt.get('width') or 0
+            has_audio = (best_fmt.get('acodec') != 'none')
+            audio_target = None if has_audio else best_audio_url
+            filesize = best_fmt.get('filesize') or best_fmt.get('filesize_approx') or (h * 100000)
+
+            label_tag = "4K Ultra HD" if h >= 2160 else ("2K QHD" if h >= 1440 else ("Full HD" if h >= 1080 else ("HD" if h >= 720 else "SD")))
+
+            qualities.append({
+                "quality": f"{h}p {label_tag}",
+                "height": h,
+                "format_id": fid,
+                "format": "MP4",
+                "resolution": f"{width}x{h}" if width else f"{h}p",
+                "size": format_filesize(filesize),
+                "url": best_fmt['url'],
+                "audio_url": audio_target,
+                "has_audio": has_audio,
+                "is_audio": False
+            })
+
+        # 4. If no qualities found, add direct info URL fallback
         if not qualities and info.get('url'):
             qualities.append({
-                "label": "720p HD",
                 "quality": "720p HD",
                 "height": 720,
-                "format_id": str(info.get('format_id', '')),
+                "format_id": "best",
                 "format": "MP4",
-                "ext": "mp4",
                 "resolution": "1280x720",
                 "size": "24.2 MB",
                 "url": info.get('url') or original_url,
@@ -988,26 +953,22 @@ class VideoExtractorService:
                 "is_audio": False
             })
 
-        if not best_audio_url:
-            best_audio_url = qualities[0]["url"] if qualities else (info.get('url') or original_url)
+        if not best_audio_url and qualities:
+            best_audio_url = qualities[0]["url"]
 
         audio_quality = {
-            "label": "MP3 High Quality",
             "quality": "MP3 High Quality",
             "height": 0,
             "format_id": "audio",
             "format": "MP3",
-            "ext": "mp3",
             "resolution": "320 kbps",
             "size": "8.5 MB" if duration_sec == 0 else format_filesize(duration_sec * 32000),
-            "url": best_audio_url,
+            "url": best_audio_url or original_url,
             "audio_url": None,
             "has_audio": True,
             "is_audio": True
         }
 
-        # Sort qualities descending by height (use integer height field for robust sorting)
-        qualities.sort(key=lambda x: x.get('height', 0), reverse=True)
         qualities.append(audio_quality)
 
         return {
